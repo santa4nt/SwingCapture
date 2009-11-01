@@ -25,7 +25,9 @@ import com.sun.image.codec.jpeg.*;
 import javax.media.*;
 import javax.media.format.*;
 import javax.media.control.*;
+import javax.media.protocol.*;
 import javax.media.util.*;
+import javax.swing.*;
 import java.awt.*;
 import java.awt.image.*;
 import java.awt.event.*;
@@ -36,10 +38,17 @@ import java.util.Vector;
  *
  * @author santa
  */
-public class CapturePanel extends Panel {
+public class CapturePanel extends JPanel {
+
+    // TODO: set dynamically from registry
+    public static final Dimension SIZE = new Dimension(640, 480);
     
-    private Player player;
     private String camera;
+    private Dimension size;
+    private DataSource ds;
+    private Player player;
+
+    protected Component visual;
 
     private Image img;
     private Buffer buf;
@@ -47,17 +56,21 @@ public class CapturePanel extends Panel {
 
     /**
      * Construct a {@code CapturePanel} from a capture device's name or its
-     * location, as related to its URL. Once created, a player for the device
-     * is embedded onto the panel and is started.
+     * media locator string. Once created, a player for the device can be
+     * embedded onto the panel and started.
      *
-     * @param camera the capture device's name or its URL
+     * @param camera the capture device's name or its media locator
+     * @param size the preferred size of the camera
      */
-    public CapturePanel(String camera) throws NoPlayerException {
+    public CapturePanel(String camera, Dimension size) throws NoPlayerException {
         setLayout(new BorderLayout());
-        setPreferredSize(new Dimension(640, 480));
+        setPreferredSize(SIZE);
 
         this.camera = camera;
-        playerStart();
+        this.size = size;
+        ds = null;
+        player = null;
+        visual = null;
 
         img = null;
         buf = null;
@@ -76,7 +89,19 @@ public class CapturePanel extends Panel {
             ml = cdi.getLocator();
 
         try {
-            player = Manager.createRealizedPlayer(ml);
+            ds = Manager.createDataSource(ml);
+            for (Format format : getSupportedFormats()) {
+                if (format instanceof VideoFormat) {
+                    Dimension supportedSize = ((VideoFormat) format).getSize();
+                    if (supportedSize.equals(size)) {
+                        if (requestCaptureFormat(format)) {
+                            System.out.println("Resolution set to " + size);
+                            setPreferredSize(size);
+                        }
+                    }
+                }
+            }
+            player = Manager.createRealizedPlayer(ds);
         } catch (NoPlayerException ex) {
             System.err.println(String.format("No device found with name '%s'",
                     camera));
@@ -87,15 +112,59 @@ public class CapturePanel extends Panel {
         }
 
         player.start();
-        Component comp = player.getVisualComponent();
+        visual = player.getVisualComponent();
 
-        if (comp != null) {
-            add(comp, BorderLayout.CENTER);
+        if (visual != null) {
+            add(visual, BorderLayout.CENTER);
+            revalidate();
             System.out.println(String.format("Camera visual added for '%s'",
                         camera));
         } else
             System.err.println(String.format("Cannot attach camera visual for '%s'",
                     camera));
+    }
+
+    /**
+     * Return all {@code Format}s supported by the underlying data source.
+     * Since an existing {@code DataSource} object must have been created by
+     * this panel, this method can only return meaningful values after the first
+     * call to {@link CapturePanel#playerStart()}.
+     *
+     * @return all {@code Format}s supported by the underlying data source
+     */
+    public Format[] getSupportedFormats() {
+        if (ds instanceof CaptureDevice) {
+            FormatControl[] fcs = ((CaptureDevice) ds).getFormatControls();
+            for (FormatControl fc : fcs) {
+                Format[] formats = fc.getSupportedFormats();
+                return formats;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Attempt to set the format of the capture device to the requested format.
+     * Return {@code true} if successful, and {@code false} otherwise.
+     *
+     * @param request the requested format
+     * @return {@code true} if successful in changing to requested format
+     */
+    private boolean requestCaptureFormat(Format request) {
+        if (ds instanceof CaptureDevice && request != null) {
+            FormatControl[] fcs = ((CaptureDevice) ds).getFormatControls();
+            for (FormatControl fc : fcs) {
+                Format[] formats = ((FormatControl) fc).getSupportedFormats();
+                for (Format format : formats)
+                    if (format.matches(request)) {
+                        Format set = ((FormatControl) fc).setFormat(format);
+                        return format.matches(set);
+                    }
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -105,7 +174,16 @@ public class CapturePanel extends Panel {
         if (player != null) {
             player.close();
             player.deallocate();
+            
             player = null;
+            ds = null;
+            img = null;
+            buf = null;
+            btoi = null;
+
+            remove(visual);
+            revalidate();
+            visual = null;
         }
     }
 
@@ -180,7 +258,7 @@ public class CapturePanel extends Panel {
                     device.getName()));
 
         final Frame f = new Frame("Testing CapturePanel");
-        final CapturePanel cp = new CapturePanel("vfw://0");
+        final CapturePanel cp = new CapturePanel("vfw://0", SIZE);
 
         f.addWindowListener(new WindowAdapter() {
             @Override
@@ -196,6 +274,8 @@ public class CapturePanel extends Panel {
 
         f.pack();
         f.setVisible(true);
+
+        cp.playerStart();
     }
 
 }

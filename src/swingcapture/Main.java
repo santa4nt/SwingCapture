@@ -22,6 +22,7 @@
 package swingcapture;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.Frame;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -34,13 +35,14 @@ public class Main {
 
     // for convenience only (TODO: query registry and present choices)
     public static final String CAMERA = "vfw:Microsoft WDM Image Capture (Win32):0";
+    public static final Dimension SIZE = new Dimension(640, 480);
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
         final Frame f = new Frame("CaptureCam");
-        final CapturePanel cp = new CapturePanel(CAMERA);
+        final CapturePanel cp = new CapturePanel(CAMERA, SIZE);
 
         f.addWindowListener(new WindowAdapter() {
             @Override
@@ -56,6 +58,8 @@ public class Main {
 
         f.pack();
         f.setVisible(true);
+
+        cp.playerStart();
     }
 
 }
