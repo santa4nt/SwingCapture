@@ -1,6 +1,22 @@
 /*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
+ * CapturePanel.java
+ *
+ * Copyright (c) 2009 santa. All rights reserved.
+ *
+ * This file is part of SwingCapture.
+ *
+ * SwingCapture is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * SwingCapture is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with SwingCapture.  If not, see <http://www.gnu.org/licenses/>.
  */
 
 package swingcapture;
@@ -36,7 +52,7 @@ public class CapturePanel extends Panel {
      *
      * @param camera the capture device's name or its URL
      */
-    public CapturePanel(String camera) {
+    public CapturePanel(String camera) throws NoPlayerException {
         setLayout(new BorderLayout());
         setPreferredSize(new Dimension(640, 480));
 
@@ -51,32 +67,35 @@ public class CapturePanel extends Panel {
     /**
      * Create and start the capture device's player.
      */
-    public void playerStart() {
+    public void playerStart() throws NoPlayerException {
         CaptureDeviceInfo cdi = CaptureDeviceManager.getDevice(camera);
         MediaLocator ml;
         if (cdi == null)
             ml = new MediaLocator(camera);
         else
             ml = cdi.getLocator();
-        if (ml == null)
-            throw new RuntimeException(String.format(
-                    "No device found with name '%s'", camera));
 
         try {
             player = Manager.createRealizedPlayer(ml);
-            player.start();
-            Component comp = player.getVisualComponent();
-
-            if (comp != null) {
-                add(comp, BorderLayout.CENTER);
-                System.out.println(String.format("Camera visual added for '%s'",
-                        camera));
-            } else
-                System.err.println(String.format("Cannot attach camera visual for '%s'",
-                        camera));
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (NoPlayerException ex) {
+            System.err.println(String.format("No device found with name '%s'",
+                    camera));
+            throw ex;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return;
         }
+
+        player.start();
+        Component comp = player.getVisualComponent();
+
+        if (comp != null) {
+            add(comp, BorderLayout.CENTER);
+            System.out.println(String.format("Camera visual added for '%s'",
+                        camera));
+        } else
+            System.err.println(String.format("Cannot attach camera visual for '%s'",
+                    camera));
     }
 
     /**
@@ -146,7 +165,7 @@ public class CapturePanel extends Panel {
     }
 
     // for unit testing ...
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         System.out.println("CAPTURE VIDEO FORMAT: RGB");
         Vector<CaptureDeviceInfo> devices = CaptureDeviceManager.getDeviceList(
                 new VideoFormat(VideoFormat.RGB));
