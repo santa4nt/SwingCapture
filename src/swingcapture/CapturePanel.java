@@ -32,6 +32,8 @@ import java.awt.*;
 import java.awt.image.*;
 import java.awt.event.*;
 import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Vector;
 
 /**
@@ -39,9 +41,6 @@ import java.util.Vector;
  * @author santa
  */
 public class CapturePanel extends JPanel {
-
-    // TODO: set dynamically from registry
-    public static final Dimension SIZE = new Dimension(640, 480);
     
     private String camera;
     private Dimension size;
@@ -64,7 +63,7 @@ public class CapturePanel extends JPanel {
      */
     public CapturePanel(String camera, Dimension size) throws NoPlayerException {
         setLayout(new BorderLayout());
-        setPreferredSize(SIZE);
+        setPreferredSize(size);
 
         this.camera = camera;
         this.size = size;
@@ -96,6 +95,7 @@ public class CapturePanel extends JPanel {
                     if (supportedSize.equals(size)) {
                         if (requestCaptureFormat(format)) {
                             System.out.println("Resolution set to " + size);
+                            System.out.println("Format set to " + format);
                             setPreferredSize(size);
                         }
                     }
@@ -174,17 +174,20 @@ public class CapturePanel extends JPanel {
         if (player != null) {
             player.close();
             player.deallocate();
-            
-            player = null;
-            ds = null;
-            img = null;
-            buf = null;
-            btoi = null;
+        }
 
+        player = null;
+        ds = null;
+        img = null;
+        buf = null;
+        btoi = null;
+
+        if (visual != null) {
             remove(visual);
             revalidate();
-            visual = null;
         }
+
+        visual = null;
     }
 
     /**
@@ -226,6 +229,7 @@ public class CapturePanel extends JPanel {
             out = new FileOutputStream(file);
         } catch (FileNotFoundException ex) {
             System.err.println(String.format("File not found: %s", file));
+            return;
         }
 
         JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
@@ -257,6 +261,7 @@ public class CapturePanel extends JPanel {
             System.out.println(String.format("Found device: '%s'",
                     device.getName()));
 
+        final Dimension SIZE = new Dimension(640, 480);
         final Frame f = new Frame("Testing CapturePanel");
         final CapturePanel cp = new CapturePanel("vfw://0", SIZE);
 
@@ -268,14 +273,63 @@ public class CapturePanel extends JPanel {
             }
         });
 
-        f.setSize(640, 480);
+        // extra controls to test CapturePanel's methods
+        final Panel control = new Panel();
+        control.setPreferredSize(new Dimension(640, 50));
+
+        final JButton close = new JButton("Close");
+        final JButton start = new JButton("Start");
+        final JButton capture = new JButton("Capture and Save");
+
+        start.setEnabled(false);
+        close.setEnabled(false);
+
+        close.addActionListener(new ActionListener() {
+           public void actionPerformed(ActionEvent evt) {
+               start.setEnabled(true);
+               cp.playerClose();
+               close.setEnabled(false);
+           }
+        });
+
+        start.addActionListener(new ActionListener() {
+           public void actionPerformed(ActionEvent evt) {
+               close.setEnabled(true);
+               try {
+                   cp.playerStart();
+               } catch (NoPlayerException ex) {
+                   System.err.println("Cannot create player: " + ex.getMessage());
+               }
+               start.setEnabled(false);
+           }
+        });
+
+        capture.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent evt) {
+                Image captured = cp.capture();
+                Calendar cal = Calendar.getInstance();
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HHmmss");
+                String outfile = "CPT-" + sdf.format(cal.getTime()) + ".jpg";
+                saveJPG(captured, outfile);
+            }
+        });
+
+        control.add(close);
+        control.add(start);
+        control.add(capture);
+
+        // setup and layout the frame (CapturePanel plus controls)
+        f.setSize(SIZE);
         f.setLayout(new BorderLayout());
         f.add(cp, BorderLayout.CENTER);
+        f.add(control, BorderLayout.SOUTH);
 
         f.pack();
         f.setVisible(true);
 
+        // start the camera
         cp.playerStart();
+        close.setEnabled(true);
     }
 
 }
