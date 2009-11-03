@@ -133,12 +133,17 @@ public class CapturePanel extends JPanel {
      * @return all {@code Format}s supported by the underlying data source
      */
     public Format[] getSupportedFormats() {
+        Vector<Format> allFormats = new Vector<Format>();
         if (ds instanceof CaptureDevice) {
             FormatControl[] fcs = ((CaptureDevice) ds).getFormatControls();
             for (FormatControl fc : fcs) {
                 Format[] formats = fc.getSupportedFormats();
-                return formats;
+                for (int i = 0; i < formats.length; i++)
+                    allFormats.add(formats[i]);
             }
+
+            Format[] supportedFormats = new Format[allFormats.size()];
+            return allFormats.toArray(supportedFormats);
         }
 
         return null;
