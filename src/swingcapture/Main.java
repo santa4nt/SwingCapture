@@ -21,11 +21,8 @@
 
 package swingcapture;
 
-import java.awt.BorderLayout;
-import java.awt.Dimension;
-import java.awt.Frame;
-import java.awt.event.WindowAdapter;
-import java.awt.event.WindowEvent;
+import java.awt.*;
+import java.awt.event.*;
 
 /**
  *
@@ -33,33 +30,23 @@ import java.awt.event.WindowEvent;
  */
 public class Main {
 
-    // for convenience only (TODO: query registry and present choices)
-    public static final String CAMERA = "vfw:Microsoft WDM Image Capture (Win32):0";
-    public static final Dimension SIZE = new Dimension(640, 480);
-
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws Exception {
-        final Frame f = new Frame("CaptureCam");
-        final CapturePanel cp = new CapturePanel(CAMERA, SIZE);
-
-        f.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                cp.playerClose();
-                System.exit(0);
+        EventQueue.invokeLater(new Runnable() {
+            public void run() {
+                final CaptureFrame frame = new CaptureFrame();
+                frame.addWindowListener(new WindowAdapter() {
+                    @Override
+                    public void windowClosing(WindowEvent evt) {
+                        frame.close();
+                        System.exit(0);
+                    }
+                });
+                frame.setVisible(true);
             }
         });
-
-        f.setSize(640, 480);
-        f.setLayout(new BorderLayout());
-        f.add(cp, BorderLayout.CENTER);
-
-        f.pack();
-        f.setVisible(true);
-
-        cp.playerStart();
     }
 
 }

@@ -30,10 +30,10 @@ import javax.media.util.*;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.*;
-import java.awt.event.*;
+//import java.awt.event.*;
 import java.io.*;
-import java.text.SimpleDateFormat;
-import java.util.Calendar;
+//import java.text.SimpleDateFormat;
+//import java.util.Calendar;
 import java.util.Vector;
 
 /**
@@ -41,9 +41,9 @@ import java.util.Vector;
  * @author santa
  */
 public class CapturePanel extends JPanel {
-    
-    private String camera;
-    private Dimension size;
+
+    private final CaptureDeviceInfo camera;
+    private final Format format;
     private DataSource ds;
     private Player player;
 
@@ -54,19 +54,21 @@ public class CapturePanel extends JPanel {
     private BufferToImage btoi;
 
     /**
-     * Construct a {@code CapturePanel} from a capture device's name or its
-     * media locator string. Once created, a player for the device can be
-     * embedded onto the panel and started.
+     * Construct a {@code CapturePanel} from the given capture device and its
+     * supported format. Once created, a player for the device can be embedded
+     * onto the panel and started.
      *
-     * @param camera the capture device's name or its media locator
-     * @param size the preferred size of the camera
+     * @param camera the video capture device
+     * @param format the supported format for the capture device
+     * @throws NoPlayerException
      */
-    public CapturePanel(String camera, Dimension size) throws NoPlayerException {
+    public CapturePanel(CaptureDeviceInfo camera, Format format) {
+        assert (format instanceof VideoFormat);
         setLayout(new BorderLayout());
-        setPreferredSize(size);
+        setPreferredSize(((VideoFormat) format).getSize());
 
         this.camera = camera;
-        this.size = size;
+        this.format = format;
         ds = null;
         player = null;
         visual = null;
@@ -77,39 +79,40 @@ public class CapturePanel extends JPanel {
     }
 
     /**
-     * Create and start the capture device's player.
+     * Based on the {@code CaptureDeviceInfo} and {@code Format} objects
+     * specified through the constructor, create and realize a
+     * {@code DataSource} and its related {@code Player}.
      */
-    public void playerStart() throws NoPlayerException {
-        CaptureDeviceInfo cdi = CaptureDeviceManager.getDevice(camera);
-        MediaLocator ml;
-        if (cdi == null)
-            ml = new MediaLocator(camera);
-        else
-            ml = cdi.getLocator();
-
+    private void createDataSource() throws NoPlayerException {
+        assert (camera != null);
+        MediaLocator ml = camera.getLocator();
         try {
             ds = Manager.createDataSource(ml);
-            for (Format format : getSupportedFormats()) {
-                if (format instanceof VideoFormat) {
-                    Dimension supportedSize = ((VideoFormat) format).getSize();
-                    if (supportedSize.equals(size)) {
-                        if (requestCaptureFormat(format)) {
-                            System.out.println("Resolution set to " + size);
-                            System.out.println("Format set to " + format);
-                            setPreferredSize(size);
-                        }
-                    }
-                }
+            assert (format instanceof VideoFormat);
+            VideoFormat vf = (VideoFormat) format;
+            if (requestCaptureFormat(vf)) {
+                System.out.println("Resolution set to " + vf.getSize());
+                System.out.println("Format set to " + vf.toString());
+                setPreferredSize(vf.getSize());
             }
+
             player = Manager.createRealizedPlayer(ds);
         } catch (NoPlayerException ex) {
-            System.err.println(String.format("No device found with name '%s'",
-                    camera));
             throw ex;
         } catch (Exception ex) {
             ex.printStackTrace();
-            return;
         }
+    }
+
+    /**
+     * Create and start the capture device's player.
+     */
+    public void playerStart() throws NoPlayerException {
+        // close the player first, if it hadn't been already (moot at first)
+        playerClose();
+        
+        // create the data source and player objects
+        createDataSource();
 
         player.start();
         visual = player.getVisualComponent();
@@ -118,10 +121,11 @@ public class CapturePanel extends JPanel {
             add(visual, BorderLayout.CENTER);
             revalidate();
             System.out.println(String.format("Camera visual added for '%s'",
-                        camera));
+                        camera.getName()));
         } else
             System.err.println(String.format("Cannot attach camera visual for '%s'",
-                    camera));
+                    camera.getName()));
+
     }
 
     /**
@@ -161,10 +165,10 @@ public class CapturePanel extends JPanel {
             FormatControl[] fcs = ((CaptureDevice) ds).getFormatControls();
             for (FormatControl fc : fcs) {
                 Format[] formats = ((FormatControl) fc).getSupportedFormats();
-                for (Format format : formats)
-                    if (format.matches(request)) {
-                        Format set = ((FormatControl) fc).setFormat(format);
-                        return format.matches(set);
+                for (Format fmt : formats)
+                    if (fmt.matches(request)) {
+                        Format set = ((FormatControl) fc).setFormat(fmt);
+                        return fmt.matches(set);
                     }
             }
         }
@@ -215,127 +219,93 @@ public class CapturePanel extends JPanel {
 
         return img;
     }
+    
 
-    /**
-     * A helper function that encodes the given {@link Image} object in JPEG
-     * format and saves it to the given file.
-     *
-     * @param img the image object to encode
-     * @param file the output file
-     */
-    public static void saveJPG(Image img, String file) {
-        BufferedImage bi = new BufferedImage(img.getWidth(null),
-                img.getHeight(null), BufferedImage.TYPE_INT_RGB);
-        Graphics2D g = bi.createGraphics();
-        g.drawImage(img, null, null);
-
-        FileOutputStream out = null;
-        try {
-            out = new FileOutputStream(file);
-        } catch (FileNotFoundException ex) {
-            System.err.println(String.format("File not found: %s", file));
-            return;
-        }
-
-        JPEGImageEncoder encoder = JPEGCodec.createJPEGEncoder(out);
-        JPEGEncodeParam param = encoder.getDefaultJPEGEncodeParam(bi);
-        param.setQuality(0.5f, false);
-        encoder.setJPEGEncodeParam(param);
-
-        try {
-            encoder.encode(bi);
-            out.close();
-        } catch (IOException ex)  {
-            System.err.println(String.format("Error encoding to file: %s", file));
-            ex.printStackTrace();
-        }
-    }
-
-    // for unit testing ...
-    public static void main(String[] args) throws Exception {
-        System.out.println("CAPTURE VIDEO FORMAT: RGB");
-        Vector<CaptureDeviceInfo> devices = CaptureDeviceManager.getDeviceList(
-                new VideoFormat(VideoFormat.RGB));
-        
-        if (devices.isEmpty()) {
-            System.out.println("NO VIDEO FORMAT: RGB");
-            System.exit(0);
-        }
-        
-        for (CaptureDeviceInfo device : devices)
-            System.out.println(String.format("Found device: '%s'",
-                    device.getName()));
-
-        final Dimension SIZE = new Dimension(640, 480);
-        final Frame f = new Frame("Testing CapturePanel");
-        final CapturePanel cp = new CapturePanel("vfw://0", SIZE);
-
-        f.addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowClosing(WindowEvent e) {
-                cp.playerClose();
-                System.exit(0);
-            }
-        });
-
-        // extra controls to test CapturePanel's methods
-        final Panel control = new Panel();
-        control.setPreferredSize(new Dimension(640, 50));
-
-        final JButton close = new JButton("Close");
-        final JButton start = new JButton("Start");
-        final JButton capture = new JButton("Capture and Save");
-
-        start.setEnabled(false);
-        close.setEnabled(false);
-
-        close.addActionListener(new ActionListener() {
-           public void actionPerformed(ActionEvent evt) {
-               start.setEnabled(true);
-               cp.playerClose();
-               close.setEnabled(false);
-           }
-        });
-
-        start.addActionListener(new ActionListener() {
-           public void actionPerformed(ActionEvent evt) {
-               close.setEnabled(true);
-               try {
-                   cp.playerStart();
-               } catch (NoPlayerException ex) {
-                   System.err.println("Cannot create player: " + ex.getMessage());
-               }
-               start.setEnabled(false);
-           }
-        });
-
-        capture.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent evt) {
-                Image captured = cp.capture();
-                Calendar cal = Calendar.getInstance();
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HHmmss");
-                String outfile = "CPT-" + sdf.format(cal.getTime()) + ".jpg";
-                saveJPG(captured, outfile);
-            }
-        });
-
-        control.add(close);
-        control.add(start);
-        control.add(capture);
-
-        // setup and layout the frame (CapturePanel plus controls)
-        f.setSize(SIZE);
-        f.setLayout(new BorderLayout());
-        f.add(cp, BorderLayout.CENTER);
-        f.add(control, BorderLayout.SOUTH);
-
-        f.pack();
-        f.setVisible(true);
-
-        // start the camera
-        cp.playerStart();
-        close.setEnabled(true);
-    }
+//    // for unit testing ...
+//    public static void main(String[] args) throws Exception {
+//        System.out.println("CAPTURE VIDEO FORMAT: RGB");
+//        Vector<CaptureDeviceInfo> devices = CaptureDeviceManager.getDeviceList(
+//                new VideoFormat(VideoFormat.RGB));
+//
+//        if (devices.isEmpty()) {
+//            System.out.println("NO VIDEO FORMAT: RGB");
+//            System.exit(0);
+//        }
+//
+//        for (CaptureDeviceInfo device : devices)
+//            System.out.println(String.format("Found device: '%s'",
+//                    device.getName()));
+//
+//        final Dimension SIZE = new Dimension(640, 480);
+//        final Frame f = new Frame("Testing CapturePanel");
+//        final CapturePanel cp = new CapturePanel("vfw://0", SIZE);
+//
+//        f.addWindowListener(new WindowAdapter() {
+//            @Override
+//            public void windowClosing(WindowEvent e) {
+//                cp.playerClose();
+//                System.exit(0);
+//            }
+//        });
+//
+//        // extra controls to test CapturePanel's methods
+//        final Panel control = new Panel();
+//        control.setPreferredSize(new Dimension(640, 50));
+//
+//        final JButton close = new JButton("Close");
+//        final JButton start = new JButton("Start");
+//        final JButton capture = new JButton("Capture and Save");
+//
+//        start.setEnabled(false);
+//        close.setEnabled(false);
+//
+//        close.addActionListener(new ActionListener() {
+//           public void actionPerformed(ActionEvent evt) {
+//               start.setEnabled(true);
+//               cp.playerClose();
+//               close.setEnabled(false);
+//           }
+//        });
+//
+//        start.addActionListener(new ActionListener() {
+//           public void actionPerformed(ActionEvent evt) {
+//               close.setEnabled(true);
+//               try {
+//                   cp.playerStart();
+//               } catch (NoPlayerException ex) {
+//                   System.err.println("Cannot create player: " + ex.getMessage());
+//               }
+//               start.setEnabled(false);
+//           }
+//        });
+//
+//        capture.addActionListener(new ActionListener() {
+//            public void actionPerformed(ActionEvent evt) {
+//                Image captured = cp.capture();
+//                Calendar cal = Calendar.getInstance();
+//                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HHmmss");
+//                String outfile = "CPT-" + sdf.format(cal.getTime()) + ".jpg";
+//                saveJPG(captured, outfile);
+//            }
+//        });
+//
+//        control.add(close);
+//        control.add(start);
+//        control.add(capture);
+//
+//        // setup and layout the frame (CapturePanel plus controls)
+//        f.setSize(SIZE);
+//        f.setLayout(new BorderLayout());
+//        f.add(cp, BorderLayout.CENTER);
+//        f.add(control, BorderLayout.SOUTH);
+//
+//        f.pack();
+//        f.setVisible(true);
+//
+//        // start the camera
+//        cp.playerStart();
+//        close.setEnabled(true);
+//    }
 
 }
 

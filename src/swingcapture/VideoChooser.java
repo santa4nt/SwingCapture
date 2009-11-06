@@ -21,6 +21,7 @@
 
 package swingcapture;
 
+import java.util.Vector;
 import javax.media.*;
 import javax.media.format.*;
 
@@ -29,6 +30,12 @@ import javax.media.format.*;
  * @author santa
  */
 public class VideoChooser extends javax.swing.JDialog {
+
+    private Vector<CaptureDeviceInfo> vidDevices;
+    private Vector<Format> vidFormats;
+
+    private CaptureDeviceInfo selectedVideoDevice;
+    private Format selectedVideoFormat;
 
     /** Creates new form VideoChooser */
     public VideoChooser(java.awt.Frame parent) {
@@ -53,8 +60,9 @@ public class VideoChooser extends javax.swing.JDialog {
         cancel = new javax.swing.JButton();
         ok = new javax.swing.JButton();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
         setTitle("Video Chooser"); // NOI18N
+        setCursor(new java.awt.Cursor(java.awt.Cursor.DEFAULT_CURSOR));
         setModal(true);
         setName("videoChooser"); // NOI18N
         setResizable(false);
@@ -108,8 +116,8 @@ public class VideoChooser extends javax.swing.JDialog {
                             .addComponent(jLabel2))
                         .addGap(18, 18, 18)
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(videoFormats, 0, 286, Short.MAX_VALUE)
-                            .addComponent(videoDevices, 0, 286, Short.MAX_VALUE)))
+                            .addComponent(videoFormats, 0, 307, Short.MAX_VALUE)
+                            .addComponent(videoDevices, 0, 307, Short.MAX_VALUE)))
                     .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                         .addComponent(ok)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
@@ -119,7 +127,7 @@ public class VideoChooser extends javax.swing.JDialog {
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(23, 23, 23)
+                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(videoDevices, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel1))
@@ -127,7 +135,7 @@ public class VideoChooser extends javax.swing.JDialog {
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(videoFormats, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(jLabel2))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 24, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 18, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(cancel)
                     .addComponent(ok))
@@ -137,24 +145,90 @@ public class VideoChooser extends javax.swing.JDialog {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
+    /**
+     * Query the JMF Registry for video devices, and populate the combo box.
+     */
     private void populateDevices() {
-        // TODO: populate combo boxes
+        Vector<CaptureDeviceInfo> devices =
+                CaptureDeviceManager.getDeviceList(null);
+
+        // get the list of video devices, and add to combo box
+        vidDevices = new Vector<CaptureDeviceInfo>();
+        for (CaptureDeviceInfo device : devices) {
+            Format[] formats = device.getFormats();
+            for (Format format : formats) {
+                if (format instanceof VideoFormat) {
+                    vidDevices.add(device);
+                    videoDevices.addItem(device.getName());
+                    break;
+                }
+            }
+        }
+
+        populateFormats();
+    }
+
+    /**
+     * Given the currently selected video device from the combo box, query
+     * its available formats and populate the formats combo box.
+     */
+    private void populateFormats() {
+        videoFormats.removeAllItems();
+        int selected = videoDevices.getSelectedIndex();
+        if (selected != -1) {
+            CaptureDeviceInfo cdi = vidDevices.elementAt(selected);
+            if (cdi != null) {
+                Format[] formats = cdi.getFormats();
+                vidFormats = new Vector<Format>();
+                for (Format format : formats) {
+                    vidFormats.add(format);
+                    videoFormats.addItem(format.toString());
+                }
+            }
+        }
+    }
+
+    /**
+     * Return the {@code CaptureDeviceInfo} object representing the selected
+     * video device.
+     *
+     * @return the video device's {@code CaptureDeviceInfo} object
+     */
+    public CaptureDeviceInfo getVideoDevice() {
+        return selectedVideoDevice;
+    }
+
+    /**
+     * Return the {@code Format} object representing the selected video format.
+     *
+     * @return the video format's {@code Format} object
+     */
+    public Format getVideoFormat() {
+        return selectedVideoFormat;
     }
 
     private void cancelActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelActionPerformed
-        // TODO add your handling code here:
+        setVisible(false);
     }//GEN-LAST:event_cancelActionPerformed
 
     private void okActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_okActionPerformed
-        // TODO add your handling code here:
+        int selected = videoDevices.getSelectedIndex();
+        if (selected != -1)
+            selectedVideoDevice = vidDevices.elementAt(selected);
+        
+        selected = videoFormats.getSelectedIndex();
+        if (selected != -1)
+            selectedVideoFormat = vidFormats.elementAt(selected);
+
+        setVisible(false);
     }//GEN-LAST:event_okActionPerformed
 
     private void videoDevicesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_videoDevicesActionPerformed
-        // TODO add your handling code here:
+        populateFormats();
     }//GEN-LAST:event_videoDevicesActionPerformed
 
     private void videoFormatsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_videoFormatsActionPerformed
-        // TODO add your handling code here:
+        // do nothing
     }//GEN-LAST:event_videoFormatsActionPerformed
 
     /**
@@ -171,6 +245,19 @@ public class VideoChooser extends javax.swing.JDialog {
                     }
                 });
                 dialog.setVisible(true);
+
+                int rc = 0;
+                try {
+                    System.out.println("Selected video device: "
+                            + dialog.getVideoDevice().getName());
+                    System.out.println("Selected video format: "
+                            + dialog.getVideoFormat().toString());
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    rc = 1;
+                } finally {
+                    System.exit(rc);
+                }
             }
         });
     }
