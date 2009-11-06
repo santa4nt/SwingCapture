@@ -21,10 +21,8 @@
 
 package swingcapture;
 
-import com.sun.image.codec.jpeg.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.awt.image.*;
 import java.io.*;
 import java.text.*;
 import java.util.*;
@@ -33,6 +31,7 @@ import javax.media.Format;
 import javax.media.NoPlayerException;
 import javax.swing.*;
 import static swingcapture.util.CaptureSaver.saveJPG;
+import static swingcapture.util.CaptureSaver.uploadJPG;
 
 /**
  *
@@ -181,18 +180,27 @@ public class CaptureFrame extends JFrame {
         Image captured = capturePanel.capture();
         Calendar cal = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd-HHmmss");
-        String outfile = "CPT-" + sdf.format(cal.getTime()) + ".jpg";
+        final String timestamp = sdf.format(cal.getTime());
+        final String outfile = "CPT-" + timestamp + ".jpg";
         try {
-            saveJPG(captured, outfile);
-        } catch (FileNotFoundException ex) {
-            // TODO: error dialog box instead
-            System.err.println("Cannot save to " + outfile);
-        }
-
-        JOptionPane.showMessageDialog(this, "Image successfully captured.",
+            final String saved = saveJPG(captured, outfile);
+            System.out.println("Image capture saved to " + saved);
+            JOptionPane.showMessageDialog(this, "Image successfully captured.",
                 "Image Capture", JOptionPane.INFORMATION_MESSAGE);
 
-        capture.setEnabled(true);
+            // upload to flickr
+            //uploadJPG(saved, "Mad Scientist Mayhem", "Taken at " + sdf);
+            uploadJPG(saved);
+        } catch (FileNotFoundException ex) {
+            // TODO: error dialog box instead
+            String message = "Cannot save to " + outfile;
+            System.err.println(message);
+            JOptionPane.showMessageDialog(this, message,
+                    "Image Capture", JOptionPane.ERROR_MESSAGE);
+            return;
+        } finally {
+            capture.setEnabled(true);
+        }
     }
 
     /**

@@ -21,7 +21,6 @@
 
 package swingcapture;
 
-import com.sun.image.codec.jpeg.*;
 import javax.media.*;
 import javax.media.format.*;
 import javax.media.control.*;
@@ -29,11 +28,6 @@ import javax.media.protocol.*;
 import javax.media.util.*;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.image.*;
-//import java.awt.event.*;
-import java.io.*;
-//import java.text.SimpleDateFormat;
-//import java.util.Calendar;
 import java.util.Vector;
 
 /**
@@ -219,93 +213,6 @@ public class CapturePanel extends JPanel {
 
         return img;
     }
-    
-
-//    // for unit testing ...
-//    public static void main(String[] args) throws Exception {
-//        System.out.println("CAPTURE VIDEO FORMAT: RGB");
-//        Vector<CaptureDeviceInfo> devices = CaptureDeviceManager.getDeviceList(
-//                new VideoFormat(VideoFormat.RGB));
-//
-//        if (devices.isEmpty()) {
-//            System.out.println("NO VIDEO FORMAT: RGB");
-//            System.exit(0);
-//        }
-//
-//        for (CaptureDeviceInfo device : devices)
-//            System.out.println(String.format("Found device: '%s'",
-//                    device.getName()));
-//
-//        final Dimension SIZE = new Dimension(640, 480);
-//        final Frame f = new Frame("Testing CapturePanel");
-//        final CapturePanel cp = new CapturePanel("vfw://0", SIZE);
-//
-//        f.addWindowListener(new WindowAdapter() {
-//            @Override
-//            public void windowClosing(WindowEvent e) {
-//                cp.playerClose();
-//                System.exit(0);
-//            }
-//        });
-//
-//        // extra controls to test CapturePanel's methods
-//        final Panel control = new Panel();
-//        control.setPreferredSize(new Dimension(640, 50));
-//
-//        final JButton close = new JButton("Close");
-//        final JButton start = new JButton("Start");
-//        final JButton capture = new JButton("Capture and Save");
-//
-//        start.setEnabled(false);
-//        close.setEnabled(false);
-//
-//        close.addActionListener(new ActionListener() {
-//           public void actionPerformed(ActionEvent evt) {
-//               start.setEnabled(true);
-//               cp.playerClose();
-//               close.setEnabled(false);
-//           }
-//        });
-//
-//        start.addActionListener(new ActionListener() {
-//           public void actionPerformed(ActionEvent evt) {
-//               close.setEnabled(true);
-//               try {
-//                   cp.playerStart();
-//               } catch (NoPlayerException ex) {
-//                   System.err.println("Cannot create player: " + ex.getMessage());
-//               }
-//               start.setEnabled(false);
-//           }
-//        });
-//
-//        capture.addActionListener(new ActionListener() {
-//            public void actionPerformed(ActionEvent evt) {
-//                Image captured = cp.capture();
-//                Calendar cal = Calendar.getInstance();
-//                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd_HHmmss");
-//                String outfile = "CPT-" + sdf.format(cal.getTime()) + ".jpg";
-//                saveJPG(captured, outfile);
-//            }
-//        });
-//
-//        control.add(close);
-//        control.add(start);
-//        control.add(capture);
-//
-//        // setup and layout the frame (CapturePanel plus controls)
-//        f.setSize(SIZE);
-//        f.setLayout(new BorderLayout());
-//        f.add(cp, BorderLayout.CENTER);
-//        f.add(control, BorderLayout.SOUTH);
-//
-//        f.pack();
-//        f.setVisible(true);
-//
-//        // start the camera
-//        cp.playerStart();
-//        close.setEnabled(true);
-//    }
 
 }
 
